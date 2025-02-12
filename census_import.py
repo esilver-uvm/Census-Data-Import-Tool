@@ -107,7 +107,8 @@ def main():
     finally:
         observer.stop()
         observer.join()
-        event_handler.census_tract_df.to_csv("census_tracts.csv", index=False)
+        # Save data frame to csv.
+        event_handler.census_tract_df.drop_duplicates().to_csv("census_tracts.csv", index=False)
 
 
 if __name__ == '__main__':
