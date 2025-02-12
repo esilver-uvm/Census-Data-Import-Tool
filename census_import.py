@@ -51,6 +51,7 @@ class CensusTractHandler(FileSystemEventHandler):
             self.census_tract_df = pd.DataFrame(columns = cols_labels)
         self.most_recent_state = ""
         self.most_recent_lookup = pd.DataFrame()
+        self.processed_files = []
 
     def add_entry(self, entry):
         # Remove state code.
@@ -73,23 +74,25 @@ class CensusTractHandler(FileSystemEventHandler):
     def on_created(self, event: Union[DirCreatedEvent, FileCreatedEvent]):
         # check if it's File creation, not Directory creation
         if isinstance(event, FileCreatedEvent):
-            new_census_tract = read_census_tract(event.src_path)
+            if event.src_path not in self.processed_files:
+                new_census_tract = read_census_tract(event.src_path)
 
-            # extract state code to determine lookup table.
-            new_state = new_census_tract[0].lower()
-            # don't reload the lookup table if it's already loaded.
-            if new_state != self.most_recent_state:
-                try:
-                    self.most_recent_lookup = pd.read_csv(LOOKUP_PATH + new_state + ".csv")
-                    self.most_recent_state = new_state
-                except FileNotFoundError:
-                    print(f"State lookup table for {new_state} not found. Skipping...")
-                    self.most_recent_lookup = False
-                    self.most_recent_state = ""
+                # extract state code to determine lookup table.
+                new_state = new_census_tract[0].lower()
+                # don't reload the lookup table if it's already loaded.
+                if new_state != self.most_recent_state:
+                    try:
+                        self.most_recent_lookup = pd.read_csv(LOOKUP_PATH + new_state + ".csv")
+                        self.most_recent_state = new_state
+                    except FileNotFoundError:
+                        print(f"State lookup table for {new_state} not found. Skipping...")
+                        self.most_recent_lookup = False
+                        self.most_recent_state = ""
 
-            if isinstance(self.most_recent_lookup, pd.DataFrame):
-                if new_census_tract:
-                    self.add_entry(new_census_tract)
+                if isinstance(self.most_recent_lookup, pd.DataFrame):
+                    if new_census_tract:
+                        self.add_entry(new_census_tract)
+                        self.processed_files.append(event.src_path)
 
 
 def main():
@@ -104,6 +107,7 @@ def main():
     finally:
         observer.stop()
         observer.join()
+        event_handler.census_tract_df.to_csv("census_tracts.csv", index=False)
 
 
 if __name__ == '__main__':
