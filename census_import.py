@@ -11,6 +11,7 @@ RENT_PATH = "./rent_tracts/"
 LOOKUP_PATH = "./tracts_states/"
 
 def read_census_tract(path):
+    """Reads in a census tract file, formatting it for the data frame below. Includes margins of error."""
     with open(path, "r") as f:
         # We want the label, without quotes, in chunks. Some files use ; for ,.
         header = f.readline().replace("'", "").replace('"', "").replace(";", ",").split(",")
@@ -25,7 +26,7 @@ def read_census_tract(path):
             print(f"Malformed census tract code in {path}, please manually check...")
             return False
 
-        # Store attributes
+        # Store attributes: mailing code, tract number, state name, county name.
         entry = [us_state_to_abbrev[header[3]],
                  tract,
                  header[3],
@@ -54,6 +55,8 @@ class CensusTractHandler(FileSystemEventHandler):
         self.processed_files = []
 
     def add_entry(self, entry):
+        """Performs the necessary checks to add an entry to the data frame. Pay close attention to console
+        logging."""
         # Remove state code.
         entry.pop(0)
         # Ensure there's a TRACTCE to match.
