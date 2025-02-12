@@ -2,7 +2,7 @@
 # Erin Silver 12-2-25
 
 import pandas as pd
-from abbrevs import us_state_to_abbrev
+from dict_lib import us_state_to_abbrev
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, DirCreatedEvent, FileCreatedEvent
 from typing import Union
@@ -49,17 +49,35 @@ class CensusTractHandler(FileSystemEventHandler):
         try:
             self.census_tract_df = pd.read_csv("census_tracts.csv")
         except FileNotFoundError:
-            self.census_tract_df = pd.DataFrame()
+            self.census_tract_df = pd.DataFrame(columns = cols_labels)
         self.most_recent_state = ""
         self.most_recent_lookup = pd.DataFrame()
 
+    def add_entry(self, entry):
+        # Remove state code.
+        entry.pop(0)
+        # Ensure there's a TRACTCE to match.
+        try:
+            lookup_tract = self.most_recent_lookup[self.most_recent_lookup["TRACTCE"] == entry[0]]
+        except KeyError:
+            print(f"Malformed census tract code in {event.src_path}, please manually check...")
+            entry = False
+        else:
+            # Get lat/lon from the matching.
+            entry.insert(lookup_tract[3, "LATITUDE"])
+            entry.insert(lookup_tract[4, "LONGITUDE"])
+
+        if entry:
+            self.census_tract_df.loc[len(self.census_tract_df)] = entry
 
     # callback for File/Directory created event, called by Observer.
     def on_created(self, event: Union[DirCreatedEvent, FileCreatedEvent]):
         # check if it's File creation, not Directory creation
         if isinstance(event, FileCreatedEvent):
-            # if so, do something with event.src_path - it's path of the created file.
-            new_state = "nc"
+            new_census_tract = read_census_tract(event.src_path)
+
+            # extract state code to determine lookup table.
+            new_state = new_census_tract[0].lower()
             # don't reload the lookup table if it's already loaded.
             if new_state != self.most_recent_state:
                 try:
@@ -70,19 +88,9 @@ class CensusTractHandler(FileSystemEventHandler):
                     self.most_recent_lookup = False
                     self.most_recent_state = ""
 
-            new_census_tract = read_census_tract(event.src_path)
             if self.most_recent_lookup:
-                try:
-                    lookup_tract = self.most_recent_lookup[self.most_recent_lookup["TRACTCE"] == new_census_tract[1]]
-                except KeyError:
-                    print(f"Malformed census tract code in {event.src_path}, please manually check...")
-                    new_census_tract = False
-                else:
-                    new_census_tract.append(lookup_tract["LATITUDE"])
-                    new_census_tract.append(lookup_tract["LONGITUDE"])
+                self.add_entry(read_census_tract(event.src_path))
 
-            if new_census_tract:
-                self.census_tract_df.loc[len(self.census_tract_df)] = new_census_tract
 
 def main():
     event_handler = CensusTractHandler()
