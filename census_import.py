@@ -2,7 +2,7 @@
 # Erin Silver 12-2-25
 
 import pandas as pd
-from dict_lib import us_state_to_abbrev
+from dict_lib import us_state_to_abbrev, cols_labels
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, DirCreatedEvent, FileCreatedEvent
 from typing import Union
@@ -12,27 +12,26 @@ LOOKUP_PATH = "./tracts_states/"
 
 def read_census_tract(path):
     with open(path, "r") as f:
-        # We want the label, without quotes, in chunks.
-        header = f.readline().replace("'", "").replace('"', "").split(",")
+        # We want the label, without quotes, in chunks. Some files use ; for ,.
+        header = f.readline().replace("'", "").replace('"', "").replace(";", ",").split(",")
         header[3] = header[3].replace("!!Estimate", "")
         for i in range(len(header)):
             header[i] = header[i].strip()
         # Alter formattings
         try:
             # Transform tract number into 6-digit tract code per census specifications.
-            tract_float = int(float(header[1].replace("Census Tract ", "")) * 100)
-            tract_string = str(tract_float)
-            while len(tract_string) < 6:
-                tract_string = '0' + tract_string
+            tract = int(float(header[1].replace("Census Tract ", "")) * 100)
         except ValueError:
             print(f"Malformed census tract code in {path}, please manually check...")
             return False
 
         # Store attributes
         entry = [us_state_to_abbrev[header[3]],
-                 header[1],
+                 tract,
                  header[3],
                  header[2]]
+
+        f.readline()
 
         for line in f.readlines():
             entry_line = line.strip().split('","')
@@ -64,8 +63,8 @@ class CensusTractHandler(FileSystemEventHandler):
             entry = False
         else:
             # Get lat/lon from the matching.
-            entry.insert(lookup_tract[3, "LATITUDE"])
-            entry.insert(lookup_tract[4, "LONGITUDE"])
+            entry.insert(3, lookup_tract["LATITUDE"].values[0])
+            entry.insert(4, lookup_tract["LONGITUDE"].values[0])
 
         if entry:
             self.census_tract_df.loc[len(self.census_tract_df)] = entry
@@ -88,8 +87,9 @@ class CensusTractHandler(FileSystemEventHandler):
                     self.most_recent_lookup = False
                     self.most_recent_state = ""
 
-            if self.most_recent_lookup:
-                self.add_entry(read_census_tract(event.src_path))
+            if isinstance(self.most_recent_lookup, pd.DataFrame):
+                if new_census_tract:
+                    self.add_entry(new_census_tract)
 
 
 def main():
@@ -107,4 +107,4 @@ def main():
 
 
 if __name__ == '__main__':
-    read_census_tract("./rent_tracts/ACSDT5Y2019.B25056-2025-02-12T204241.csv")
+    main()

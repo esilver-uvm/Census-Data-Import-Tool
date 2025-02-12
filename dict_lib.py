@@ -76,8 +76,10 @@ cols_labels = ["Tract Code",
                "County",
                "Latitude",
                "Longitude",
-               "Total",
-               "Total MG",
+               "Total Cash Rent",
+               "Total Cash Rent MG",
+               'Less than $100',
+               'Less than $100 MG',
                '$100 to $149',
                '$100 to $149 MG',
                '$150 to $199',
@@ -123,7 +125,9 @@ cols_labels = ["Tract Code",
                '$3,000 to $3,499',
                '$3,000 to $3,499 MG',
                '$3,500 or more',
-               '$3,500 or more MG']
+               '$3,500 or more MG',
+               'No Cash Rent',
+               'No Cash Rent MG']
 # invert the dictionary
 abbrev_to_us_state = dict(map(reversed, us_state_to_abbrev.items()))
 
