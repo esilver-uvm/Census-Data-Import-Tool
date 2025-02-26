@@ -21,7 +21,7 @@ def read_census_tract(path):
         # Alter formattings
         try:
             # Transform tract number into 6-digit tract code per census specifications.
-            tract = int(float(header[1].replace("Census Tract ", "")) * 100)
+            tract = int(header[1].replace("Census Tract ", "").replace('.',''))
         except ValueError:
             print(f"Malformed census tract code in {path}, please manually check...")
             return False
