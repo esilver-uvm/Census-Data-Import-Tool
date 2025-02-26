@@ -21,7 +21,7 @@ def read_census_tract(path):
         # Alter formattings
         try:
             # Transform tract number into 6-digit tract code per census specifications.
-            tract = int(header[1].replace("Census Tract ", "").replace('.',''))
+            tract = int(header[1].replace("Census Tract ", "").replace(".",""))
         except ValueError:
             print(f"Malformed census tract code in {path}, please manually check...")
             return False
@@ -67,8 +67,12 @@ class CensusTractHandler(FileSystemEventHandler):
             entry = False
         else:
             # Get lat/lon from the matching.
-            entry.insert(3, lookup_tract["LATITUDE"].values[0])
-            entry.insert(4, lookup_tract["LONGITUDE"].values[0])
+            try:
+                entry.insert(3, lookup_tract["LATITUDE"].values[0])
+                entry.insert(4, lookup_tract["LONGITUDE"].values[0])
+            except IndexError:
+                print(f"Malformed census tract code in {event.src_path}, please manually check...")
+                entry = False
 
         if entry:
             self.census_tract_df.loc[len(self.census_tract_df)] = entry
