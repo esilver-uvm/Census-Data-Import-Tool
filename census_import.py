@@ -14,35 +14,32 @@ def read_census_tract(path):
     """Reads in a census tract file, formatting it for the data frame below. Includes margins of error."""
     with open(path, "r") as f:
         # We want the label, without quotes, in chunks. Some files use ; for ,.
-        header = f.readline().replace("'", "").replace('"', "").replace(";", ",").split(",")
-        header[3] = header[3].replace("!!Estimate", "")
-        for i in range(len(header)):
-            header[i] = header[i].strip()
-        # Alter formattings
-        # Transform tract number into 6-digit tract code per census specifications.
-        tract = header[1].replace("Census Tract ", "")
-        if "." in tract:
-            tract.replace(".", "")
-        else:
-            tract += "00"
-        try:
-            tract = int(tract)
-        except ValueError:
-            print(f"Malformed census tract code in {path}, please manually check...")
-            return False
+        header = f.readline().split(",")[1:]
+        entry = []
+        for i, h in enumerate(header):
+            if i % 2 == 0:
+                h = h.strip("\"").split("; ")
+                h[0] = h[0].replace("Census Tract ", "")
+                h[2] = h[2].replace("!!Estimate", "")
+                if "." in h[0]:
+                    h[0] = h[0].replace(".", "")
+                else:
+                    h[0] += "00"
+                try:
+                    h[0] = int(h[0])
+                except ValueError:
+                    print(f"Malformed census tract code in {path}, please manually check...")
+                    return False
 
-        # Store attributes: mailing code, tract number, state name, county name.
-        entry = [us_state_to_abbrev[header[3]],
-                 tract,
-                 header[3],
-                 header[2]]
+                entry.append([us_state_to_abbrev[h[2]], h[0], h[2], h[1]])
 
         f.readline()
 
         for line in f.readlines():
-            entry_line = line.strip().split('","')
-            entry.extend([entry_line[1].replace(',', ""),
-                          entry_line[2].replace('"', "").replace("±", '')])
+            entry_line = line.replace('","', '";"').replace(",","").split(";")[1:]
+            for i in range(len(entry)):
+                entry[i].extend([entry_line[2 * i].replace('"', "").replace("\n", ""),
+                                 entry_line[2 * i + 1].replace('"', "").replace("±", "").replace("\n", "")])
 
     return entry
 
@@ -87,24 +84,24 @@ class CensusTractHandler(FileSystemEventHandler):
         # check if it's File creation, not Directory creation
         if isinstance(event, FileCreatedEvent):
             if event.src_path not in self.processed_files:
-                new_census_tract = read_census_tract(event.src_path)
+                entry = read_census_tract(event.src_path)
+                for e in entry:
+                    # extract state code to determine lookup table.
+                    new_state = e[0].lower()
+                    # don't reload the lookup table if it's already loaded.
+                    if new_state != self.most_recent_state:
+                        try:
+                            self.most_recent_lookup = pd.read_csv(LOOKUP_PATH + new_state + ".csv")
+                            self.most_recent_state = new_state
+                        except FileNotFoundError:
+                            print(f"State lookup table for {new_state} not found. Skipping...")
+                            self.most_recent_lookup = False
+                            self.most_recent_state = ""
 
-                # extract state code to determine lookup table.
-                new_state = new_census_tract[0].lower()
-                # don't reload the lookup table if it's already loaded.
-                if new_state != self.most_recent_state:
-                    try:
-                        self.most_recent_lookup = pd.read_csv(LOOKUP_PATH + new_state + ".csv")
-                        self.most_recent_state = new_state
-                    except FileNotFoundError:
-                        print(f"State lookup table for {new_state} not found. Skipping...")
-                        self.most_recent_lookup = False
-                        self.most_recent_state = ""
-
-                if isinstance(self.most_recent_lookup, pd.DataFrame):
-                    if new_census_tract:
-                        self.add_entry(new_census_tract)
-                        self.processed_files.append(event.src_path)
+                    if isinstance(self.most_recent_lookup, pd.DataFrame):
+                        if e:
+                            self.add_entry(e)
+                            self.processed_files.append(event.src_path)
 
 
 def main():
