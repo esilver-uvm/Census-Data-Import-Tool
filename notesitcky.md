@@ -1,0 +1,3 @@
+For a given census tract, we know the proportion of people paying each rent band. Akin to a probability distribution. Do these distributions differ among the census tracts?
+- A chi-2 test for goodness of fit. What’s the average ‘probability distribution’ over all of the census tracts? How much does one deviate?
+- Average rent for census tract as a regression on distance from college. Don’t worry too much about sampling errors. – how many people exactly are in each band, and what’s the exact mean price within the band? That error is fine! Just discuss it. 
